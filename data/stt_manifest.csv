@@ -1,0 +1,4 @@
+filename,reference,lang,condition
+sample_ru_clean.wav,привет как дела,ru-RU,russian_clean
+sample_ru_noise.wav,добрый день уважаемые коллеги,ru-RU,russian_noisy
+sample_kk_clean.wav,сәлем қалайсыз,kk-KZ,kazakh_clean

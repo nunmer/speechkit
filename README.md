@@ -1,6 +1,6 @@
 # speech-service
 
-Minimal wrapper around Yandex SpeechKit TTS and STT (KZ region).
+REST API + CLI wrapper around Yandex SpeechKit TTS and STT (KZ region).
 
 ## Setup
 
@@ -17,32 +17,89 @@ cp .env.example .env
 | `API_KEY` | SpeechKit API key |
 | `FOLDER_ID` | Yandex Cloud folder ID |
 | `SSL_VERIFY` | Set to `false` on corporate networks |
+| `HTTPS_PROXY` | Proxy URL, e.g. `http://headproxy03:8080` |
 
-## TTS — synthesize text to WAV
+## Run the API
 
 ```bash
-python scripts/speak.py "Сәлем, қалайсыз?" --voice madi --out out/madi.wav
-python scripts/speak.py "Привет" --proxy http://headproxy03:8080
-python scripts/speak.py --list-voices
+uvicorn api.main:app --reload --port 8000
 ```
 
-Available voices: `jane`, `madi`, `amira`, `saule`, `zhanar`
+Interactive docs: http://localhost:8000/docs
 
-## STT — transcribe WAV to text
+## Endpoints
+
+### TTS
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/tts/voices` | List available voices |
+| `POST` | `/tts/synthesize` | Synthesize text → audio |
+
+**POST /tts/synthesize** — returns raw audio bytes (WAV/MP3/OGG_OPUS)
+
+```json
+{
+  "text": "Сәлем, қалайсыз?",
+  "voice": "madi",
+  "lang": "ru-RU",
+  "format": "WAV"
+}
+```
+
+### STT
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/stt/recognize` | Transcribe WAV → text |
+
+**POST /stt/recognize** — multipart form upload
 
 ```bash
-python scripts/transcribe.py audio.wav
+curl -X POST http://localhost:8000/stt/recognize \
+  -F "file=@audio.wav" \
+  -F "lang=ru-RU"
+```
+
+Response:
+```json
+{
+  "text": "распознанный текст",
+  "lang": "ru-RU",
+  "duration_seconds": 4.2,
+  "warnings": []
+}
+```
+
+### Health
+
+```
+GET /health  →  {"status": "ok"}
+```
+
+## CLI (quick tests without the server)
+
+```bash
+# TTS
+python scripts/speak.py "Сәлем!" --voice madi --out out/madi.wav --proxy http://headproxy03:8080
+
+# STT
 python scripts/transcribe.py audio.wav --lang kk-KZ --proxy http://headproxy03:8080
 ```
 
 ## Structure
 
 ```
+api/
+  main.py          ← FastAPI app
+  routers/
+    tts.py         ← /tts endpoints
+    stt.py         ← /stt endpoints
 speechkit/
-  client.py   — SpeechKitClient (tts_synthesize, stt_recognize)
-  audio.py    — WAV loading + validation helpers
-config.py     — credentials + API URLs from .env
+  client.py        ← SpeechKitClient (tts_synthesize, stt_recognize)
+  audio.py         ← WAV load + validation helpers
+config.py          ← credentials + API URLs from .env
 scripts/
-  speak.py      — TTS CLI
-  transcribe.py — STT CLI
+  speak.py         ← TTS CLI
+  transcribe.py    ← STT CLI
 ```

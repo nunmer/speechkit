@@ -42,11 +42,8 @@ def main():
         os.environ["HTTPS_PROXY"] = args.proxy
         os.environ["HTTP_PROXY"] = args.proxy
 
-    from config import API_KEY, FOLDER_ID
-    from speechkit.client import SpeechKitClient
-
-    client = SpeechKitClient(api_key=API_KEY, folder_id=FOLDER_ID)
-    audio = client.tts_synthesize(args.text, lang=args.lang, voice=args.voice)
+    from speechkit.client import tts_synthesize
+    audio = tts_synthesize(args.text, voice=args.voice, lang=args.lang)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

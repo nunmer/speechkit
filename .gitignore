@@ -8,3 +8,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Audio samples and API response dumps (test artifacts)
+*.wav
+*.mp3
+*.ogg
+response_*.json

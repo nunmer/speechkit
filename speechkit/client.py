@@ -11,10 +11,20 @@ def _get_sdk():
     global _sdk_instance
     if _sdk_instance is None:
         from config import API_KEY, FOLDER_ID
+        # Yandex Cloud Kazakhstan region. The root API host is api.yandexcloud.kz
+        # (NOT api.cloud.yandex.kz — that name is a CNAME to the yandex.ru web
+        # portal, which only speaks HTTP/1.1 and breaks gRPC's ALPN handshake).
+        # STT (ai-stt-v3) is resolved via endpoint discovery, but tts-v3 is not
+        # published there for the KZ region, so it is supplied explicitly.
         _sdk_instance = sdk_module.AIStudio(
             auth=API_KEY,
             folder_id=FOLDER_ID,
-            endpoint=os.environ.get("YANDEX_ENDPOINT", "api.cloud.yandex.net:443"),
+            endpoint=os.environ.get("YANDEX_ENDPOINT", "api.yandexcloud.kz:443"),
+            service_map={
+                "ai-tts-v3": os.environ.get(
+                    "YANDEX_TTS_ENDPOINT", "tts.api.yandexcloud.kz:443"
+                ),
+            },
         )
     return _sdk_instance
 

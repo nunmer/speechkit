@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Synthesize text to WAV using Yandex SpeechKit TTS.
+"""Synthesize text to WAV using the speech service TTS engine.
 
 Usage:
   python scripts/speak.py "Сәлем, қалайсыз?"
   python scripts/speak.py "Привет" --voice madi --out out/madi.wav
-  python scripts/speak.py "Текст" --proxy http://headproxy03:8080
+  python scripts/speak.py "Текст" --engine yandex
   python scripts/speak.py --list-voices
 """
 import argparse
@@ -16,21 +16,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-VOICES = ["jane", "madi", "amira", "saule", "zhanar"]
-
 
 def main():
     parser = argparse.ArgumentParser(description="TTS: text → WAV")
     parser.add_argument("text", nargs="?", help="Text to synthesize")
-    parser.add_argument("--voice", default="jane", choices=VOICES)
+    parser.add_argument("--voice", default="jane")
     parser.add_argument("--lang", default="ru-RU")
     parser.add_argument("--out", default="out/speak.wav")
-    parser.add_argument("--proxy", help="HTTP/HTTPS proxy URL (overrides env)")
+    parser.add_argument("--engine", default=None, help="TTS engine (default from config)")
     parser.add_argument("--list-voices", action="store_true")
     args = parser.parse_args()
 
+    from app.engines import create_tts_engine
+    tts = create_tts_engine(args.engine)
+
     if args.list_voices:
-        for v in VOICES:
+        for v in tts.list_voices():
             print(v)
         return
 
@@ -38,12 +39,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if args.proxy:
-        os.environ["HTTPS_PROXY"] = args.proxy
-        os.environ["HTTP_PROXY"] = args.proxy
-
-    from speechkit.client import tts_synthesize
-    audio = tts_synthesize(args.text, voice=args.voice, lang=args.lang)
+    audio = tts.synthesize(args.text, voice=args.voice, lang=args.lang)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,42 @@
+services:
+  speech-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: speech-service:latest
+    container_name: speech-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      LOG_JSON: "true"
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    extra_hosts:
+      - "headproxy03:172.23.6.160"
+    networks:
+      - speech-net
+
+networks:
+  speech-net:
+    driver: bridge

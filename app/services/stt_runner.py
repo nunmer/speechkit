@@ -3,15 +3,12 @@
 Keeps a single source of truth for how a job's audio becomes a result, so the
 sync endpoints and the async worker can never drift apart.
 """
-import time
-
 from sqlalchemy.orm import Session
 
 from app.db.models import SpeechJob, JobKind
 from app.engines import create_stt_engine
 from app.services import jobs as jobs_service, storage
 from app.utils.audio import ms_to_timestamp
-from app.core.metrics import JOBS_TOTAL, JOB_DURATION
 
 
 def build_result(stt, kind: str, audio: bytes, lang: str) -> dict:
@@ -36,16 +33,10 @@ def process(db: Session, job: SpeechJob, audio: bytes | None = None) -> dict:
 
     jobs_service.mark_processing(db, job)
     stt = create_stt_engine(job.engine)
-    started = time.perf_counter()
     try:
         result = build_result(stt, job.kind, audio, job.lang)
     except Exception as e:
         jobs_service.mark_failed(db, job, str(e))
-        JOBS_TOTAL.labels(kind=job.kind, engine=job.engine, status="failed").inc()
         raise
-    JOB_DURATION.labels(kind=job.kind, engine=job.engine).observe(
-        time.perf_counter() - started
-    )
     jobs_service.mark_completed(db, job, result)
-    JOBS_TOTAL.labels(kind=job.kind, engine=job.engine, status="completed").inc()
     return result

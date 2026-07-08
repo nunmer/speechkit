@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from app.engines import create_tts_engine
 from app.engines.base import EngineError
 from app.core.config import settings
-from app.core.metrics import ENGINE_ERRORS, DEDUP_HITS
 from app.services import dedup, cache
 
 logger = logging.getLogger("speech_service.tts")
@@ -48,13 +47,10 @@ def synthesize(req: SynthesizeRequest, engine: str = Query(default=None)):
 
     cache_key = dedup.tts_hash(req.text, req.voice, req.lang, req.format)
     audio = cache.get_tts_audio(cache_key) if settings.DEDUP_ENABLED else None
-    if audio is not None:
-        DEDUP_HITS.labels(kind="synthesize").inc()
-    else:
+    if audio is None:
         try:
             audio = tts.synthesize(req.text, voice=req.voice, lang=req.lang, fmt=req.format)
         except EngineError as e:
-            ENGINE_ERRORS.labels(engine=tts.engine_type.value, operation="synthesize").inc()
             logger.error("TTS synthesize error [%s]: %s", tts.engine_type.value, e)
             raise HTTPException(status_code=502, detail=str(e))
         if settings.DEDUP_ENABLED:

@@ -11,7 +11,6 @@ from app.services import jobs as jobs_service, storage, dedup, stt_runner
 from app.schemas.jobs import JobSubmitResponse
 from app.utils.audio import to_pcm_wav, wav_duration
 from app.core.config import settings
-from app.core.metrics import ENGINE_ERRORS, AUDIO_DURATION, DEDUP_HITS
 
 logger = logging.getLogger("speech_service.stt")
 
@@ -48,11 +47,9 @@ async def recognize(
     try:
         result = stt_runner.build_result(stt, JobKind.RECOGNIZE, audio, lang)
     except EngineError as e:
-        ENGINE_ERRORS.labels(engine=stt.engine_type.value, operation="recognize").inc()
         logger.error("STT recognize error [%s]: %s", stt.engine_type.value, e)
         raise HTTPException(status_code=502, detail=str(e))
 
-    AUDIO_DURATION.labels(operation="recognize", engine=stt.engine_type.value).observe(duration)
     return {**result, "lang": lang, "engine": stt.engine_type.value,
             "duration_seconds": round(duration, 2)}
 
@@ -69,11 +66,9 @@ async def transcribe(
     try:
         result = stt_runner.build_result(stt, JobKind.TRANSCRIBE, audio, lang)
     except EngineError as e:
-        ENGINE_ERRORS.labels(engine=stt.engine_type.value, operation="transcribe").inc()
         logger.error("STT transcribe error [%s]: %s", stt.engine_type.value, e)
         raise HTTPException(status_code=502, detail=str(e))
 
-    AUDIO_DURATION.labels(operation="transcribe", engine=stt.engine_type.value).observe(duration)
     return {**result, "lang": lang, "engine": stt.engine_type.value,
             "duration_seconds": round(duration, 2)}
 
@@ -91,7 +86,6 @@ def _submit(db: Session, request: Request, kind: str, audio: bytes,
     if settings.DEDUP_ENABLED:
         existing = jobs_service.find_completed_by_hash(db, input_hash)
         if existing is not None:
-            DEDUP_HITS.labels(kind=kind).inc()
             return JobSubmitResponse(
                 job_id=existing.id, status=existing.status, kind=kind,
                 engine=engine_value, lang=lang, cached=True,

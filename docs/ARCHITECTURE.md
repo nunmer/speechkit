@@ -12,7 +12,6 @@ an asynchronous job pipeline for long-running speech-to-text.
 | **Postgres** | Durable job records + results, API keys |
 | **Redis** | Celery broker + result backend; rate-limit counters; TTS audio cache |
 | **Shared volume** | Uploaded audio, readable by both API and worker |
-| **Prometheus + Grafana** | Metrics scraping, dashboards, alerts |
 
 All of API, worker, and the supporting services run from the same image
 (`Dockerfile`); the container role is selected by the entrypoint argument
@@ -77,7 +76,6 @@ app/
     celery_app.py         Celery configuration
     auth.py               API-key dependency
     ratelimit.py          Redis fixed-window limiter
-    metrics.py            Prometheus metrics
     middleware.py         Request logging + correlation id (X-Request-ID)
   db/
     models.py             SpeechJob, ApiKey
@@ -98,4 +96,4 @@ app/
     jobs.py               job status polling
 ```
 
-See [AUTHENTICATION.md](AUTHENTICATION.md) and [MONITORING.md](MONITORING.md).
+See [AUTHENTICATION.md](AUTHENTICATION.md).

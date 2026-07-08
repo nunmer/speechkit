@@ -30,7 +30,6 @@ services:
     environment:
       LOG_JSON: "false"
       LOG_LEVEL: "DEBUG"
-      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
     volumes:
       - ./app:/app/app
       - uploads:/app/uploads

@@ -10,9 +10,6 @@ __pycache__/
 dist/
 build/
 
-# Prometheus multiprocess metric files
-*.db
-
 # Audio samples and API response dumps (test artifacts)
 *.wav
 *.mp3

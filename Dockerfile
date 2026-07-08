@@ -18,8 +18,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends libsndfile1 curl && \
     rm -rf /var/lib/apt/lists/* && \
     useradd -r -u 1001 -s /bin/false appuser && \
-    mkdir -p /tmp/prometheus_multiproc /app/uploads && \
-    chown appuser /tmp/prometheus_multiproc /app/uploads
+    mkdir -p /app/uploads && \
+    chown appuser /app/uploads
 
 COPY --from=builder /install /usr/local
 COPY app/ app/
@@ -33,8 +33,7 @@ USER appuser
 
 EXPOSE 8000
 
-ENV PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc \
-    PYTHONPATH=/app
+ENV PYTHONPATH=/app
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fs http://localhost:8000/health || exit 1

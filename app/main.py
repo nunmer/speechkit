@@ -2,14 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import Response
 
 from app.core.ratelimit import rate_limit
 
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.middleware import RequestLoggingMiddleware
-from app.core.metrics import generate_latest, CONTENT_TYPE_LATEST, make_registry
 from app.routers import tts, stt, jobs
 
 
@@ -43,8 +41,3 @@ app.include_router(jobs.router, prefix="/jobs", tags=["Jobs"], dependencies=_pro
 @app.get("/health", tags=["Ops"])
 def health():
     return {"status": "ok"}
-
-
-@app.get("/metrics", tags=["Ops"], include_in_schema=False)
-def metrics():
-    return Response(generate_latest(make_registry()), media_type=CONTENT_TYPE_LATEST)

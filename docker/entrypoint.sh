@@ -1,11 +1,6 @@
 #!/bin/sh
 set -e
 
-if [ -n "$PROMETHEUS_MULTIPROC_DIR" ]; then
-    mkdir -p "$PROMETHEUS_MULTIPROC_DIR"
-    rm -rf "${PROMETHEUS_MULTIPROC_DIR:?}"/*
-fi
-
 ROLE="${1:-api}"
 
 case "$ROLE" in

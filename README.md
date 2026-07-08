@@ -34,7 +34,7 @@ cp .env.example .env
 The async pipeline needs Postgres + Redis + a worker. Run everything with Docker:
 
 ```bash
-docker compose up --build          # api, worker, postgres, redis, prometheus, grafana
+docker compose up --build          # api, worker, postgres, redis
 # dev (hot reload, local postgres/redis):
 docker compose -f docker-compose.dev.yml up --build
 ```
@@ -42,7 +42,6 @@ docker compose -f docker-compose.dev.yml up --build
 The API applies database migrations (`alembic upgrade head`) on startup.
 
 - API docs: http://localhost:8000/docs
-- Prometheus: http://localhost:9090 · Grafana: http://localhost:3000
 
 ### API only (no async)
 
@@ -52,8 +51,7 @@ The synchronous TTS/STT endpoints work without infra:
 uvicorn app.main:app --reload --port 8000
 ```
 
-See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) and
-[docs/MONITORING.md](docs/MONITORING.md) for auth, rate limiting, and metrics.
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for auth and rate limiting.
 
 ## Endpoints
 

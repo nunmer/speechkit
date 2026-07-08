@@ -1,16 +1,40 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, Depends
+from sqlalchemy.orm import Session
 
 from app.engines import create_stt_engine
 from app.engines.base import EngineError
-from app.utils.audio import to_pcm_wav, wav_duration, ms_to_timestamp
-from app.core.metrics import ENGINE_ERRORS, AUDIO_DURATION
+from app.db.database import get_db
+from app.db.models import JobKind
+from app.services import jobs as jobs_service, storage, dedup, stt_runner
+from app.schemas.jobs import JobSubmitResponse
+from app.utils.audio import to_pcm_wav, wav_duration
+from app.core.config import settings
+from app.core.metrics import ENGINE_ERRORS, AUDIO_DURATION, DEDUP_HITS
 
 logger = logging.getLogger("speech_service.stt")
 
 router = APIRouter()
 
+
+def _decode(data: bytes) -> bytes:
+    try:
+        return to_pcm_wav(data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not decode audio: {e}")
+
+
+def _resolve_engine(engine: str | None):
+    try:
+        return create_stt_engine(engine)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# --------------------------------------------------------------------------- #
+# Synchronous endpoints — block until the engine returns. Best for short audio.
+# --------------------------------------------------------------------------- #
 
 @router.post("/recognize")
 async def recognize(
@@ -18,31 +42,19 @@ async def recognize(
     lang: str = Form("ru-RU", description="Language code, e.g. ru-RU or kk-KZ"),
     engine: str = Form(default=None, description="STT engine (default from config)"),
 ):
-    data = await file.read()
+    audio = _decode(await file.read())
+    stt = _resolve_engine(engine)
+    duration = wav_duration(audio)
     try:
-        data = to_pcm_wav(data)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not decode audio: {e}")
-
-    try:
-        stt = create_stt_engine(engine)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    duration = wav_duration(data)
-    try:
-        text = stt.recognize(data, lang=lang)
+        result = stt_runner.build_result(stt, JobKind.RECOGNIZE, audio, lang)
     except EngineError as e:
         ENGINE_ERRORS.labels(engine=stt.engine_type.value, operation="recognize").inc()
         logger.error("STT recognize error [%s]: %s", stt.engine_type.value, e)
         raise HTTPException(status_code=502, detail=str(e))
 
     AUDIO_DURATION.labels(operation="recognize", engine=stt.engine_type.value).observe(duration)
-    return {
-        "text": text,
-        "lang": lang,
-        "engine": stt.engine_type.value,
-        "duration_seconds": round(duration, 2),
-    }
+    return {**result, "lang": lang, "engine": stt.engine_type.value,
+            "duration_seconds": round(duration, 2)}
 
 
 @router.post("/transcribe")
@@ -51,33 +63,75 @@ async def transcribe(
     lang: str = Form("ru-RU", description="Language code, e.g. ru-RU or kk-KZ"),
     engine: str = Form(default=None, description="STT engine (default from config)"),
 ):
-    data = await file.read()
+    audio = _decode(await file.read())
+    stt = _resolve_engine(engine)
+    duration = wav_duration(audio)
     try:
-        data = to_pcm_wav(data)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not decode audio: {e}")
-
-    try:
-        stt = create_stt_engine(engine)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    duration = wav_duration(data)
-    try:
-        channels = stt.transcribe(data, lang=lang)
+        result = stt_runner.build_result(stt, JobKind.TRANSCRIBE, audio, lang)
     except EngineError as e:
         ENGINE_ERRORS.labels(engine=stt.engine_type.value, operation="transcribe").inc()
         logger.error("STT transcribe error [%s]: %s", stt.engine_type.value, e)
         raise HTTPException(status_code=502, detail=str(e))
 
-    for ch in channels:
-        for utt in ch["utterances"]:
-            utt["start"] = ms_to_timestamp(utt["start_ms"])
-            utt["end"] = ms_to_timestamp(utt["end_ms"])
-
     AUDIO_DURATION.labels(operation="transcribe", engine=stt.engine_type.value).observe(duration)
-    return {
-        "lang": lang,
-        "engine": stt.engine_type.value,
-        "duration_seconds": round(duration, 2),
-        "speakers": channels,
-    }
+    return {**result, "lang": lang, "engine": stt.engine_type.value,
+            "duration_seconds": round(duration, 2)}
+
+
+# --------------------------------------------------------------------------- #
+# Async endpoints — enqueue a job and return immediately. Best for long audio.
+# --------------------------------------------------------------------------- #
+
+def _submit(db: Session, request: Request, kind: str, audio: bytes,
+            lang: str, engine: str | None) -> JobSubmitResponse:
+    stt = _resolve_engine(engine)
+    engine_value = stt.engine_type.value
+    input_hash = dedup.stt_hash(kind, engine_value, lang, audio)
+
+    if settings.DEDUP_ENABLED:
+        existing = jobs_service.find_completed_by_hash(db, input_hash)
+        if existing is not None:
+            DEDUP_HITS.labels(kind=kind).inc()
+            return JobSubmitResponse(
+                job_id=existing.id, status=existing.status, kind=kind,
+                engine=engine_value, lang=lang, cached=True,
+            )
+
+    path = storage.save_audio(audio)
+    request_id = getattr(request.state, "request_id", None)
+    job = jobs_service.create(
+        db, kind=kind, engine=engine_value, lang=lang,
+        input_hash=input_hash, audio_path=path, request_id=request_id,
+    )
+
+    from app.tasks.stt_tasks import run_stt_job
+    run_stt_job.delay(job.id)
+
+    return JobSubmitResponse(
+        job_id=job.id, status=job.status, kind=kind,
+        engine=engine_value, lang=lang, cached=False,
+    )
+
+
+@router.post("/recognize/async", status_code=202, response_model=JobSubmitResponse)
+async def recognize_async(
+    request: Request,
+    file: UploadFile = File(...),
+    lang: str = Form("ru-RU"),
+    engine: str = Form(default=None),
+    db: Session = Depends(get_db),
+):
+    audio = _decode(await file.read())
+    return _submit(db, request, JobKind.RECOGNIZE, audio, lang, engine)
+
+
+@router.post("/transcribe/async", status_code=202, response_model=JobSubmitResponse)
+async def transcribe_async(
+    request: Request,
+    file: UploadFile = File(...),
+    lang: str = Form("ru-RU"),
+    engine: str = Form(default=None),
+    db: Session = Depends(get_db),
+):
+    audio = _decode(await file.read())
+    return _submit(db, request, JobKind.TRANSCRIBE, audio, lang, engine)

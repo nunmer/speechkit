@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: speech
+      POSTGRES_PASSWORD: speech
+      POSTGRES_DB: speech
+    ports:
+      - "5432:5432"
+    networks:
+      - speech-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - speech-net
+
   speech-service:
     build:
       context: .
@@ -15,11 +33,38 @@ services:
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
     volumes:
       - ./app:/app/app
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      - uploads:/app/uploads
+    command: ["api"]
+    depends_on:
+      - postgres
+      - redis
     extra_hosts:
       - "headproxy03:172.23.6.160"
     networks:
       - speech-net
+
+  worker:
+    image: speech-service:dev
+    container_name: speech-worker-dev
+    env_file:
+      - .env
+    environment:
+      LOG_JSON: "false"
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      - ./app:/app/app
+      - uploads:/app/uploads
+    command: ["worker"]
+    depends_on:
+      - postgres
+      - redis
+    extra_hosts:
+      - "headproxy03:172.23.6.160"
+    networks:
+      - speech-net
+
+volumes:
+  uploads:
 
 networks:
   speech-net:

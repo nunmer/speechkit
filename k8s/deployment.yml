@@ -74,6 +74,11 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: uploads
+              mountPath: /app/uploads
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: speech-uploads

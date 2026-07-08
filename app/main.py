@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
+
+from app.core.ratelimit import rate_limit
 
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.metrics import generate_latest, CONTENT_TYPE_LATEST, make_registry
-from app.routers import tts, stt
+from app.routers import tts, stt, jobs
 
 
 @asynccontextmanager
@@ -27,13 +29,15 @@ app = FastAPI(
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(tts.router, prefix="/tts", tags=["TTS"])
-app.include_router(stt.router, prefix="/stt", tags=["STT"])
+_protected = [Depends(rate_limit)]
+app.include_router(tts.router, prefix="/tts", tags=["TTS"], dependencies=_protected)
+app.include_router(stt.router, prefix="/stt", tags=["STT"], dependencies=_protected)
+app.include_router(jobs.router, prefix="/jobs", tags=["Jobs"], dependencies=_protected)
 
 
 @app.get("/health", tags=["Ops"])

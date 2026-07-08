@@ -42,3 +42,22 @@ AUDIO_DURATION = Histogram(
     ["operation", "engine"],
     buckets=[1, 5, 10, 30, 60, 120, 300, 600],
 )
+
+JOBS_TOTAL = Counter(
+    "speech_jobs_total",
+    "Speech jobs by kind, engine and terminal status",
+    ["kind", "engine", "status"],
+)
+
+JOB_DURATION = Histogram(
+    "speech_job_duration_seconds",
+    "Engine processing duration per job",
+    ["kind", "engine"],
+    buckets=[0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600],
+)
+
+DEDUP_HITS = Counter(
+    "speech_dedup_hits_total",
+    "Requests served from a cached/duplicate result",
+    ["kind"],
+)

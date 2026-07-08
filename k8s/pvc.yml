@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: speech-uploads
+  namespace: speech-service
+spec:
+  # ReadWriteMany so the API and worker pods share uploaded audio.
+  # Requires a RWX-capable StorageClass (e.g. NFS, CephFS, EFS).
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi

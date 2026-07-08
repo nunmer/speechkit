@@ -1,6 +1,7 @@
 .env
 data/audio/
 out/
+uploads/
 __pycache__/
 *.pyc
 *.pyo
@@ -8,6 +9,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Prometheus multiprocess metric files
+*.db
 
 # Audio samples and API response dumps (test artifacts)
 *.wav

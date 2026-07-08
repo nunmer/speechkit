@@ -1,4 +1,37 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: speech-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: speech
+      POSTGRES_PASSWORD: speech
+      POSTGRES_DB: speech
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U speech -d speech"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - speech-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: speech-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - speech-net
+
   speech-service:
     build:
       context: .
@@ -6,6 +39,7 @@ services:
     image: speech-service:latest
     container_name: speech-service
     restart: unless-stopped
+    command: ["api"]
     ports:
       - "8000:8000"
     env_file:
@@ -13,29 +47,82 @@ services:
     environment:
       LOG_JSON: "true"
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "2.0"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "3"
+      start_period: 20s
     extra_hosts:
       - "headproxy03:172.23.6.160"
     networks:
       - speech-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: speech-service:latest
+    container_name: speech-worker
+    restart: unless-stopped
+    command: ["worker"]
+    env_file:
+      - .env
+    environment:
+      LOG_JSON: "true"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "headproxy03:172.23.6.160"
+    networks:
+      - speech-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: speech-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - speech-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: speech-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - speech-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+  grafana_data:
 
 networks:
   speech-net:

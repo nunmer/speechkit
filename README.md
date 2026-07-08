@@ -29,13 +29,31 @@ cp .env.example .env
 | `YANDEX_HTTPS_PROXY` | Proxy URL, e.g. `http://headproxy03:8080` |
 | `YANDEX_TIMEOUT` | Per-request timeout in seconds (default `120`) |
 
-## Run the API
+## Run the full stack
+
+The async pipeline needs Postgres + Redis + a worker. Run everything with Docker:
+
+```bash
+docker compose up --build          # api, worker, postgres, redis, prometheus, grafana
+# dev (hot reload, local postgres/redis):
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The API applies database migrations (`alembic upgrade head`) on startup.
+
+- API docs: http://localhost:8000/docs
+- Prometheus: http://localhost:9090 · Grafana: http://localhost:3000
+
+### API only (no async)
+
+The synchronous TTS/STT endpoints work without infra:
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive docs: http://localhost:8000/docs
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) and
+[docs/MONITORING.md](docs/MONITORING.md) for auth, rate limiting, and metrics.
 
 ## Endpoints
 
@@ -64,11 +82,19 @@ the default engine at request time.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/stt/recognize` | Transcribe audio → text |
-| `POST` | `/stt/transcribe` | Transcribe with timestamps + speaker diarization |
+| `POST` | `/stt/recognize` | Transcribe audio → text (synchronous, short audio) |
+| `POST` | `/stt/transcribe` | Transcribe with timestamps + speaker diarization (synchronous) |
+| `POST` | `/stt/recognize/async` | Queue recognition → returns `job_id` (long audio) |
+| `POST` | `/stt/transcribe/async` | Queue transcription → returns `job_id` (long audio) |
+| `GET`  | `/jobs/{job_id}` | Poll async job status + result |
 
 Both accept any audio format `soundfile` can read; it is normalized to mono 16 kHz PCM
 before processing.
+
+The async endpoints persist a job, enqueue it to the worker, and return `202` with a
+`job_id`; poll `/jobs/{job_id}` until `status` is `completed` or `failed`. Identical
+input is deduplicated and returns the prior completed job. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```bash
 curl -X POST http://localhost:8000/stt/recognize \

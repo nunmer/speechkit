@@ -12,9 +12,37 @@ class Settings(BaseSettings):
     LOG_JSON: bool = True
     WORKERS: int = 4
 
+    # CORS: comma-separated origins, or "*" for any
+    CORS_ORIGINS: str = "*"
+
     # Engine selection
     DEFAULT_STT_ENGINE: str = "yandex"
     DEFAULT_TTS_ENGINE: str = "yandex"
+
+    # Database
+    DATABASE_URL: str = "postgresql+psycopg2://speech:speech@localhost:5432/speech"
+
+    # Celery / Redis
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+    REDIS_URL: str = "redis://localhost:6379/2"
+    CELERY_QUEUE: str = "speech_queue"
+
+    # File storage (shared volume between API and worker)
+    UPLOAD_DIR: str = "/app/uploads"
+
+    # Authentication
+    API_KEY_ENABLED: bool = False
+    API_KEY_HEADER: str = "X-API-Key"
+
+    # Rate limiting (per API key, fixed window)
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_MAX_REQUESTS: int = 60
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Deduplication
+    DEDUP_ENABLED: bool = True
+    TTS_CACHE_TTL_SECONDS: int = 86400
 
     # Yandex SpeechKit
     YANDEX_API_KEY: str = ""
@@ -25,6 +53,13 @@ class Settings(BaseSettings):
     YANDEX_SSL_VERIFY: bool = True
     YANDEX_HTTPS_PROXY: str = ""
     YANDEX_HTTP_PROXY: str = ""
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        value = self.CORS_ORIGINS.strip()
+        if value == "*":
+            return ["*"]
+        return [o.strip() for o in value.split(",") if o.strip()]
 
 
 settings = Settings()

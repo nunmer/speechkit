@@ -83,6 +83,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # The image HEALTHCHECK curls the API port, which doesn't exist in the
+    # worker role — probe Celery itself instead.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app inspect ping -d celery@$$(hostname) --timeout 10 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
     extra_hosts:
       - "headproxy03:172.23.6.160"
     networks:

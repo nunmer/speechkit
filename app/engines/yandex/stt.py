@@ -104,12 +104,16 @@ class YandexSTTEngine(STTEngine):
     # -- private helpers --
 
     def _submit(self, audio: bytes, lang: str, speaker_labeling: bool) -> str:
+        # `lang` may be a single tag ("kk-KZ") or a comma-separated set
+        # ("ru-RU,kk-KZ"). A multi-language WHITELIST lets SpeechKit auto-detect
+        # which language was spoken — so a user can switch mid-conversation.
+        languages = [c.strip() for c in lang.split(",") if c.strip()] or [lang]
         model = {
             "audioFormat": {"containerAudio": {"containerAudioType": "WAV"}},
             "textNormalization": {"textNormalization": "TEXT_NORMALIZATION_ENABLED"},
             "languageRestriction": {
                 "restrictionType": "WHITELIST",
-                "languageCode": [lang],
+                "languageCode": languages,
             },
         }
         body: dict[str, Any] = {

@@ -28,3 +28,14 @@ def test_synthesize_returns_audio(client, sample_wav):
     assert r.status_code == 200
     assert r.headers["content-type"] == "audio/wav"
     assert r.content == fake_audio
+
+
+def test_resolve_voice_corrects_russian_voice_on_kazakh():
+    """kk-KZ must never be spoken by a Russian voice — fall back to madi."""
+    from app.engines.yandex.tts import YandexTTSEngine
+
+    resolve = YandexTTSEngine._resolve_voice
+    assert resolve("jane", "kk-KZ") == "madi"   # russian voice → kazakh default
+    assert resolve("amira", "kk-KZ") == "amira"  # kazakh voice kept as-is
+    assert resolve("jane", "ru-RU") == "jane"    # russian voice kept for russian
+    assert resolve("john", "en-US") == "john"    # no dedicated en voice → passthrough

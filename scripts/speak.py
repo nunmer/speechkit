@@ -2,8 +2,8 @@
 """Synthesize text to WAV using the speech service TTS engine.
 
 Usage:
-  python scripts/speak.py "Сәлем, қалайсыз?"
-  python scripts/speak.py "Привет" --voice madi --out out/madi.wav
+  python scripts/speak.py "Сәлем, қалайсыз?" --voice amira --out out/amira.wav
+  python scripts/speak.py "Привет"
   python scripts/speak.py "Текст" --engine yandex
   python scripts/speak.py --list-voices
 """
@@ -20,7 +20,7 @@ load_dotenv()
 def main():
     parser = argparse.ArgumentParser(description="TTS: text → WAV")
     parser.add_argument("text", nargs="?", help="Text to synthesize")
-    parser.add_argument("--voice", default="jane")
+    parser.add_argument("--voice", default="marina")
     parser.add_argument("--lang", default="ru-RU")
     parser.add_argument("--out", default="out/speak.wav")
     parser.add_argument("--engine", default=None, help="TTS engine (default from config)")

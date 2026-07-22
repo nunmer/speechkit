@@ -44,7 +44,7 @@ class TTSEngine(ABC):
         pass
 
     @abstractmethod
-    def synthesize(self, text: str, voice: str = "jane", lang: str = "ru-RU",
+    def synthesize(self, text: str, voice: str = "marina", lang: str = "ru-RU",
                    fmt: str = "WAV") -> bytes:
         """Synthesize text to audio bytes."""
         pass

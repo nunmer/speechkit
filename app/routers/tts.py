@@ -22,7 +22,7 @@ MIME = {
 
 class SynthesizeRequest(BaseModel):
     text: str
-    voice: str = "jane"
+    voice: str = "marina"
     lang: str = "ru-RU"
     format: str = "WAV"
 

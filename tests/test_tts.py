@@ -35,7 +35,8 @@ def test_resolve_voice_corrects_russian_voice_on_kazakh():
     from app.engines.yandex.tts import YandexTTSEngine
 
     resolve = YandexTTSEngine._resolve_voice
-    assert resolve("jane", "kk-KZ") == "madi"   # russian voice → kazakh default
-    assert resolve("amira", "kk-KZ") == "amira"  # kazakh voice kept as-is
-    assert resolve("jane", "ru-RU") == "jane"    # russian voice kept for russian
+    assert resolve("jane", "kk-KZ") == "amira"   # russian voice → kazakh default
+    assert resolve("madi", "kk-KZ") == "madi"    # kazakh voice kept as-is
+    assert resolve("amira", "ru-RU") == "marina"  # kazakh voice → russian default
+    assert resolve("marina", "ru-RU") == "marina"  # russian voice kept for russian
     assert resolve("john", "en-US") == "john"    # no dedicated en voice → passthrough

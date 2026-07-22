@@ -10,7 +10,7 @@ def stt_hash(kind: str, engine: str, lang: str, audio: bytes) -> str:
     return h.hexdigest()
 
 
-def tts_hash(text: str, voice: str, lang: str, fmt: str) -> str:
+def tts_hash(text: str, voice: str, lang: str, fmt: str, speed: float) -> str:
     """Stable hash of a TTS request."""
-    payload = f"{text}|{voice}|{lang}|{fmt}".encode()
+    payload = f"{text}|{voice}|{lang}|{fmt}|{speed}".encode()
     return hashlib.sha256(payload).hexdigest()

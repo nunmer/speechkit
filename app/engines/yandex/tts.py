@@ -45,12 +45,12 @@ class YandexTTSEngine(TTSEngine):
         return voice
 
     def synthesize(self, text: str, voice: str = "marina", lang: str = "ru-RU",
-                   fmt: str = "WAV") -> bytes:
+                   fmt: str = "WAV", speed: float = 1.15) -> bytes:
         voice = self._resolve_voice(voice, lang)
         body = {
             "text": text,
             "outputAudioSpec": {"containerAudio": {"containerAudioType": fmt}},
-            "hints": [{"voice": voice}],
+            "hints": [{"voice": voice}, {"speed": speed}],
         }
         try:
             resp = post(settings.YANDEX_TTS_URL, body)

@@ -25,6 +25,9 @@ class SynthesizeRequest(BaseModel):
     voice: str = "marina"
     lang: str = "ru-RU"
     format: str = "WAV"
+    # Slightly above Yandex's neutral 1.0 — full-rate TTS reads noticeably
+    # slower than natural conversational speech.
+    speed: float = 1.15
 
 
 @router.get("/voices")
@@ -45,11 +48,13 @@ def synthesize(req: SynthesizeRequest, engine: str = Query(default=None)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    cache_key = dedup.tts_hash(req.text, req.voice, req.lang, req.format)
+    cache_key = dedup.tts_hash(req.text, req.voice, req.lang, req.format, req.speed)
     audio = cache.get_tts_audio(cache_key) if settings.DEDUP_ENABLED else None
     if audio is None:
         try:
-            audio = tts.synthesize(req.text, voice=req.voice, lang=req.lang, fmt=req.format)
+            audio = tts.synthesize(
+                req.text, voice=req.voice, lang=req.lang, fmt=req.format, speed=req.speed
+            )
         except EngineError as e:
             logger.error("TTS synthesize error [%s]: %s", tts.engine_type.value, e)
             raise HTTPException(status_code=502, detail=str(e))

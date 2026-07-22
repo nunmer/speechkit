@@ -45,8 +45,12 @@ class TTSEngine(ABC):
 
     @abstractmethod
     def synthesize(self, text: str, voice: str = "marina", lang: str = "ru-RU",
-                   fmt: str = "WAV") -> bytes:
-        """Synthesize text to audio bytes."""
+                   fmt: str = "WAV", speed: float = 1.15) -> bytes:
+        """Synthesize text to audio bytes.
+
+        `speed` defaults above Yandex's own neutral 1.0 — full-rate TTS reads
+        noticeably slower than natural conversational speech.
+        """
         pass
 
     @abstractmethod

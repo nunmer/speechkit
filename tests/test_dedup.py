@@ -16,7 +16,14 @@ def test_stt_hash_varies_by_input():
 
 
 def test_tts_hash_varies_by_voice_and_format():
-    base = dedup.tts_hash("hello", "jane", "ru-RU", "WAV")
-    assert base == dedup.tts_hash("hello", "jane", "ru-RU", "WAV")
-    assert base != dedup.tts_hash("hello", "madi", "ru-RU", "WAV")
-    assert base != dedup.tts_hash("hello", "jane", "ru-RU", "MP3")
+    base = dedup.tts_hash("hello", "jane", "ru-RU", "WAV", 1.15)
+    assert base == dedup.tts_hash("hello", "jane", "ru-RU", "WAV", 1.15)
+    assert base != dedup.tts_hash("hello", "madi", "ru-RU", "WAV", 1.15)
+    assert base != dedup.tts_hash("hello", "jane", "ru-RU", "MP3", 1.15)
+
+
+def test_tts_hash_varies_by_speed():
+    # A speed change produces different audio — it must invalidate the cache,
+    # not silently serve audio synthesized at the old rate.
+    assert dedup.tts_hash("hello", "jane", "ru-RU", "WAV", 1.0) != \
+        dedup.tts_hash("hello", "jane", "ru-RU", "WAV", 1.15)

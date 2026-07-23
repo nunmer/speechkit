@@ -1,6 +1,6 @@
 """Unit tests for the streaming STT session-options builder — pure protobuf
 construction, no network calls (connectivity is verified separately, live)."""
-from app.engines.yandex.stt_stream import SAMPLE_RATE_HERTZ, _session_options
+from app.engines.yandex.stt_stream import EOU_PAUSE_MS, SAMPLE_RATE_HERTZ, _session_options
 from yandex.cloud.ai.stt.v3 import stt_pb2
 
 
@@ -30,3 +30,13 @@ def test_session_options_real_time_processing():
         opts.recognition_model.audio_processing_type
         == stt_pb2.RecognitionModelOptions.REAL_TIME
     )
+
+
+def test_session_options_enables_end_of_utterance_detection():
+    # This is the "algorithm that finds when the user gave enough context" —
+    # Yandex's own pause-based EOU classifier, so a hands-free conversation
+    # doesn't need a manual stop-tap after every turn.
+    opts = _session_options("ru-RU")
+    classifier = opts.eou_classifier.default_classifier
+    assert classifier.type == stt_pb2.DefaultEouClassifier.DEFAULT
+    assert classifier.max_pause_between_words_hint_ms == EOU_PAUSE_MS

@@ -27,6 +27,15 @@ STREAM_HOST = "stt.api.yandexcloud.kz:443"
 # pipeline, which downsamples the mic to this exact shape before sending.
 SAMPLE_RATE_HERTZ = 16000
 
+# How long a pause must be before Yandex's built-in end-of-utterance detector
+# decides the user is done talking and emits a `final` — this is the
+# "algorithm that finds when the user gave enough context" that lets the web
+# client keep the mic open across a whole hands-free conversation instead of
+# requiring a manual stop-tap after every turn. Not so short that a normal
+# mid-sentence breath cuts the utterance early, not so long that replies feel
+# sluggish to start.
+EOU_PAUSE_MS = 700
+
 
 def _session_options(lang: str) -> stt_pb2.StreamingOptions:
     """Build the first StreamingRequest message: audio format + language.
@@ -52,7 +61,13 @@ def _session_options(lang: str) -> stt_pb2.StreamingOptions:
                 language_code=languages,
             ),
             audio_processing_type=stt_pb2.RecognitionModelOptions.REAL_TIME,
-        )
+        ),
+        eou_classifier=stt_pb2.EouClassifierOptions(
+            default_classifier=stt_pb2.DefaultEouClassifier(
+                type=stt_pb2.DefaultEouClassifier.DEFAULT,
+                max_pause_between_words_hint_ms=EOU_PAUSE_MS,
+            )
+        ),
     )
 
 
